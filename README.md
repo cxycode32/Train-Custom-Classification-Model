@@ -34,7 +34,7 @@ python main.py
 
 
 ### File Structure
-
+```
 ├── main.py                # Training script
 ├── dataset.py             # Custom dataset class
 ├── utils.py               # Utility functions
@@ -43,7 +43,7 @@ python main.py
 ├── best_model.pth         # Saved best model
 ├── requirements.txt       # Project dependencies
 └── .gitignore             # Ignored files for Git
-
+```
 
 ## Visualization
 

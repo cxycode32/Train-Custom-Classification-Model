@@ -16,7 +16,13 @@ class ScreenshotDataset(Dataset):
 
     def __getitem__(self, index):
         img_path = os.path.join(self.root_dir, self.annotations.iloc[index, 0])
-        image = cv2.imread(img_path)
+        try:
+            image = cv2.imread(img_path)
+            if image is None:
+                raise ValueError(f"Image not found at {img_path}")
+        except Exception as e:
+            print(f"Error loading image {img_path}: {e}")
+            return None
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         label = torch.tensor(int(self.annotations.iloc[index, 1]))
 

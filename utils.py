@@ -1,8 +1,29 @@
+import os
 import torch
 import albumentations as A
 from matplotlib import pyplot as plt
 from albumentations.pytorch import ToTensorV2
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+
+
+def load_model(model, optimizer, filename="model.pth.tar"):
+    """Load model."""
+    if not os.path.exists(filename):
+        print(f"Checkpoint file '{filename}' not found.")
+        return
+
+    print("Loading model......")
+    checkpoint = torch.load(filename, weights_only=True)
+    model.load_state_dict(checkpoint['state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer'])
+    print("Model loaded!")
+
+
+def save_model(model, best_model_path = "model.pth.tar"):
+    """Save model."""
+    print("Saving model......")
+    torch.save(model.state_dict(), best_model_path)
+    print("Model saved!")
 
 
 def get_transform():
@@ -45,7 +66,7 @@ def check_accuracy(loader, model, device):
             num_samples += targets.size(0)
 
     accuracy = 100 * num_correct / num_samples
-    print(f"Accuracy: {accuracy:.2f}%")
+
     return accuracy
 
 
@@ -55,16 +76,18 @@ def plot_metrics(history):
 
     # Loss plot
     plt.subplot(1, 2, 1)
-    plt.plot(history["loss"], label="Loss")
-    plt.title("Training Loss")
+    plt.plot(history["train_loss"], label="Train Loss")
+    plt.plot(history["val_loss"], label="Validation Loss")
+    plt.title("Loss Trends")
     plt.xlabel("Epochs")
     plt.ylabel("Loss")
     plt.legend()
 
     # Accuracy plot
     plt.subplot(1, 2, 2)
-    plt.plot(history["accuracy"], label="Accuracy")
-    plt.title("Training Accuracy")
+    plt.plot(history["train_accuracy"], label="Train Accuracy")
+    plt.plot(history["val_accuracy"], label="Validation Accuracy")
+    plt.title("Accuracy Trends")
     plt.xlabel("Epochs")
     plt.ylabel("Accuracy")
     plt.legend()
@@ -73,7 +96,7 @@ def plot_metrics(history):
     plt.show()
 
 
-def plot_confusion_matrix(loader, model, device):
+def plot_confusion_matrix(loader, model, device, title="Confusion Matrix"):
     """Plot confusion matrix."""
     model.eval()
     all_preds = []
@@ -92,7 +115,7 @@ def plot_confusion_matrix(loader, model, device):
     cm = confusion_matrix(all_labels, all_preds)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=range(len(cm)))
     disp.plot(cmap=plt.cm.Blues)
-    plt.title("Confusion Matrix")
+    plt.title(title)
     plt.show()
 
 

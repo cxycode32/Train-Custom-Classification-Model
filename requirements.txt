@@ -1,8 +1,8 @@
 torch
 torchvision
-albumentations
-scikit-learn
-matplotlib
+torchsummary
 pandas
 opencv-python
-torchsummary
+albumentations
+matplotlib
+scikit-learn

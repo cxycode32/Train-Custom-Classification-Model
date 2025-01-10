@@ -2,84 +2,171 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader, random_split
 import torchvision
+from torchvision.models import resnet50
 from dataset import ScreenshotDataset
-from utils import get_transform, check_accuracy, plot_metrics, plot_confusion_matrix, visualize_augmentations
+from utils import load_model, save_model, get_transform, check_accuracy, plot_metrics, plot_confusion_matrix, visualize_augmentations
 from torchsummary import summary
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-INPUT_SIZE = 1024
+INPUT_SIZE = 2048
 CLASS_NUM = 3
 LEARNING_RATE = 3e-4
 BATCH_SIZE = 32
-EPOCH_NUM = 10
+EPOCH_NUM = 50
+EARLY_STOPPING_PATIENCE = 5
+VALIDATION_SPLIT = 0.2
 
-ROOT_DIR = "your_datasets"
+# Change root directory to the directory where your datasets (images) are
+ROOT_DIR = "screenshots"
+
+# You need to create your own CSV file containing data labels
+# Currently data_labels.csv already contains sample format for your reference
+# You can edit it to tailor to your need
 CSV_FILE = "data_labels.csv"
 
 
-def train_model(model, train_loader, criterion, optimizer, num_epochs, device):
+def load_data(dataset):
+    """Set training, validation, and testing data size, then load the dataset."""
+    train_size = int(len(dataset) * 0.7)
+    val_size = int(len(dataset) * 0.15)
+    test_size = len(dataset) - train_size - val_size
+    
+    train_set, val_set, test_set = random_split(dataset, [train_size, val_size, test_size])
+
+    train_loader = DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True)
+    val_loader = DataLoader(dataset=val_set, batch_size=BATCH_SIZE, shuffle=False)
+    test_loader = DataLoader(dataset=test_set, batch_size=BATCH_SIZE, shuffle=False)
+
+    return train_loader, val_loader, test_loader
+
+
+def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler, num_epochs, device):
     """Train the model and print loss for each epoch."""
-    history = {"loss": [], "accuracy": []}
-    best_accuracy = 0
-    best_model_path = "best_model.pth"
+    best_val_accuracy = 0
+    patience_counter = 0
+    train_result = {"train_loss": [], "val_loss": [], "train_accuracy": [], "val_accuracy": []}
 
     for epoch in range(num_epochs):
+        # Training phase
         model.train()
-        epoch_loss = 0
+        train_loss = 0.0
+        correct_train = 0
+        total_train = 0
 
         for data, targets in train_loader:
-            data = data.to(device)
-            targets = targets.to(device)
+            data, targets = data.to(device), targets.to(device)
 
             # Forward pass
             outputs = model(data)
             loss = criterion(outputs, targets)
-            epoch_loss += loss.item()
+            train_loss += loss.item()
 
             # Backward pass
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-        # Accuracy after epoch
-        accuracy = check_accuracy(train_loader, model, device)
-        history["loss"].append(epoch_loss / len(train_loader))
-        history["accuracy"].append(accuracy)
+            # Accuracy calculation
+            _, preds = outputs.max(1)
+            correct_train += (preds == targets).sum().item()
+            total_train += targets.size(0)
 
-        # Save best model
-        if accuracy > best_accuracy:
-            best_accuracy = accuracy
-            torch.save(model.state_dict(), best_model_path)
+        train_loss /= len(train_loader)
+        train_accuracy = (correct_train / total_train) * 100
 
-        print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {epoch_loss / len(train_loader):.4f}, Accuracy: {accuracy:.2f}%")
+        # Validation phase
+        model.eval()
+        val_loss = 0.0
+        correct_val = 0
+        total_val = 0
 
-    print(f"Best model saved with accuracy: {best_accuracy:.2f}%")
-    return history
+        with torch.no_grad():
+            for data, targets in val_loader:
+                data, targets = data.to(device), targets.to(device)
+
+                outputs = model(data)
+                loss = criterion(outputs, targets)
+                val_loss += loss.item()
+
+                # Accuracy calculation
+                _, preds = outputs.max(1)
+                correct_val += (preds == targets).sum().item()
+                total_val += targets.size(0)
+
+        val_loss /= len(val_loader)
+        val_accuracy = (correct_val / total_val) * 100
+
+        # Update learning rate scheduler
+        if scheduler:
+            scheduler.step(val_loss)
+
+        # Record metrics
+        train_result["train_loss"].append(train_loss)
+        train_result["val_loss"].append(val_loss)
+        train_result["train_accuracy"].append(train_accuracy)
+        train_result["val_accuracy"].append(val_accuracy)
+
+        # Print metrics
+        print(f"Epoch [{epoch+1}/{num_epochs}], "
+              f"Train Loss: {train_loss:.4f}, "
+              f"Val Loss: {val_loss:.4f}, "
+              f"Train Accuracy: {train_accuracy:.2f}%, "
+              f"Val Accuracy: {val_accuracy:.2f}%")
+
+        # Save the best model
+        if val_accuracy > best_val_accuracy:
+            best_val_accuracy = val_accuracy
+            save_model(model)
+            patience_counter = 0
+        else:
+            patience_counter += 1
+
+        # Early stopping
+        if patience_counter >= EARLY_STOPPING_PATIENCE:
+            print("Early stopping triggered.")
+            break
+
+    print(f"Best model saved with best accuracy: {best_val_accuracy:.4f}")
+    return train_result
+
+
+def visualize_result(training_result, train_loader, val_loader, test_loader, model):
+    # Plot training metrics
+    plot_metrics(training_result)
+
+    # Check model's accuracy
+    print("Training Set Accuracy:")
+    check_accuracy(train_loader, model, device)
+
+    print("Validation Set Accuracy:")
+    check_accuracy(val_loader, model, device)
+
+    print("Test Set Accuracy:")
+    check_accuracy(test_loader, model, device)
+
+    # Confusion matrix for the test set
+    plot_confusion_matrix(test_loader, model, device)
 
 
 def main():
     # Data Augmentation
     transform = get_transform()
 
-    # Dataset and DataLoader
     dataset = ScreenshotDataset(
         csv_file=CSV_FILE,
         root_dir=ROOT_DIR,
-        transform=transform, #.ToTensor(),
+        transform=transform,
     )
-    train_size = int(len(dataset) * 0.8)
-    test_size = len(dataset) - train_size
-    train_set, test_set = random_split(dataset, [train_size, test_size])
 
-    train_loader = DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True)
-    test_loader = DataLoader(dataset=test_set, batch_size=BATCH_SIZE, shuffle=True)
+    train_loader, val_loader, test_loader = load_data(dataset)
 
     # Freeze all layers except the last one, then update the last layer
-    model = torchvision.models.googlenet(weights="DEFAULT")
+    model = resnet50(weights="DEFAULT")
     for param in model.parameters():
         param.requires_grad = False
     model.fc = nn.Linear(in_features=INPUT_SIZE, out_features=CLASS_NUM)
@@ -87,29 +174,21 @@ def main():
 
     # Print model summary
     print("Model Summary:")
-    summary(model, input_size=(3, 224, 224))
+    summary(model, input_size=(3, INPUT_SIZE, INPUT_SIZE))
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
+    scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
 
     # Visualize Augmented Samples
     visualize_augmentations(dataset)
 
     # Train the model
-    history = train_model(model, train_loader, criterion, optimizer, EPOCH_NUM, device)
+    training_result = train_model(model, train_loader, val_loader, criterion, optimizer, scheduler, EPOCH_NUM, device)
 
-    # Plot training metrics
-    plot_metrics(history)
-
-    # Check model's accuracy
-    print("Training Set Accuracy:")
-    train_accuracy = check_accuracy(train_loader, model, device)
-    print("Test Set Accuracy:")
-    test_accuracy = check_accuracy(test_loader, model, device)
-
-    # Confusion matrix for the test set
-    plot_confusion_matrix(test_loader, model, device)
+    # Visualize Training Results
+    visualize_result(training_result, train_loader, val_loader, test_loader, model)
 
 
 if __name__ == "__main__":
