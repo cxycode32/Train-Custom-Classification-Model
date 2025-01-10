@@ -1,33 +1,45 @@
 import os
 import cv2
 import torch
+import numpy as np
 import pandas as pd
+from PIL import Image
 from torch.utils.data import Dataset
+from utils import get_transform
 
 
 class ScreenshotDataset(Dataset):
     def __init__(self, csv_file, root_dir, transform=None):
-        self.annotations = pd.read_csv(csv_file)
+        super(ScreenshotDataset, self).__init__()
+        self.data = []
         self.root_dir = root_dir
         self.transform = transform
+        self.annotations = pd.read_csv(csv_file)
+        self.class_names = os.listdir(root_dir)
+
+        print("[TESTING] (dataset.py) self.class_names")
+        for index, name in enumerate(self.class_names):
+            print(f"{index}: {name}")
+            files = os.listdir(os.path.join(root_dir, name))
+            print(f"files: {files}")
+            self.data += list(zip(files, [index] * len(files)))
+            print(f"self.data: {self.data}")
 
     def __len__(self):
         return len(self.annotations)
 
     def __getitem__(self, index):
-        img_path = os.path.join(self.root_dir, self.annotations.iloc[index, 0])
-        try:
-            image = cv2.imread(img_path)
-            if image is None:
-                raise ValueError(f"Image not found at {img_path}")
-        except Exception as e:
-            print(f"Error loading image {img_path}: {e}")
-            return None
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        label = torch.tensor(int(self.annotations.iloc[index, 1]))
+        img_file, label = self.data[index]
+        root_and_dir = os.path.join(self.root_dir, self.class_names[label])
+        image = np.array(Image.open(os.path.join(root_and_dir, img_file)))
 
-        if self.transform:
-            augmented = self.transform(image=image)
-            image = augmented['image']
+        print("[TESTING] (dataset.py) __getitem__")
+        print(f"{img_file}, {label}")
+        print(f"root_and_dir: {root_and_dir}")
+        print(f"image: {image}")
+
+        if self.transform is not None:
+            augmentations = self.transform(image=image)
+            image = augmentations["image"]
 
         return image, label

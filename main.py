@@ -5,6 +5,7 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader, random_split
 import torchvision
+import torchvision.transforms as transforms
 from torchvision.models import resnet50
 from dataset import ScreenshotDataset
 from utils import load_model, save_model, get_transform, check_accuracy, plot_metrics, plot_confusion_matrix, visualize_augmentations
@@ -19,7 +20,7 @@ LEARNING_RATE = 3e-4
 BATCH_SIZE = 32
 EPOCH_NUM = 50
 EARLY_STOPPING_PATIENCE = 5
-VALIDATION_SPLIT = 0.2
+WEIGHT_DECAY = 1e-5
 
 # Change root directory to the directory where your datasets (images) are
 ROOT_DIR = "screenshots"
@@ -28,6 +29,9 @@ ROOT_DIR = "screenshots"
 # Currently data_labels.csv already contains sample format for your reference
 # You can edit it to tailor to your need
 CSV_FILE = "data_labels.csv"
+
+# Change to your own model file name if any
+MODEL_FILE = "model.pth.tar"
 
 
 def load_data(dataset):
@@ -73,7 +77,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
 
             # Accuracy calculation
             _, preds = outputs.max(1)
-            correct_train += (preds == targets).sum().item()
+            correct_train += (preds == targets).sum()
             total_train += targets.size(0)
 
         train_loss /= len(train_loader)
@@ -95,7 +99,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
 
                 # Accuracy calculation
                 _, preds = outputs.max(1)
-                correct_val += (preds == targets).sum().item()
+                correct_val += (preds == targets).sum()
                 total_val += targets.size(0)
 
         val_loss /= len(val_loader)
@@ -119,19 +123,19 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
               f"Val Accuracy: {val_accuracy:.2f}%")
 
         # Save the best model
-        if val_accuracy > best_val_accuracy:
-            best_val_accuracy = val_accuracy
-            save_model(model)
-            patience_counter = 0
-        else:
-            patience_counter += 1
+        # if val_accuracy > best_val_accuracy:
+        #     best_val_accuracy = val_accuracy
+        #     save_model(model, optimizer, MODEL_FILE)
+        #     patience_counter = 0
+        # else:
+        #     patience_counter += 1
 
         # Early stopping
-        if patience_counter >= EARLY_STOPPING_PATIENCE:
-            print("Early stopping triggered.")
-            break
+        # if patience_counter >= EARLY_STOPPING_PATIENCE:
+        #     print("Early stopping triggered.")
+        #     break
 
-    print(f"Best model saved with best accuracy: {best_val_accuracy:.4f}")
+    # print(f"Best model saved with best accuracy: {best_val_accuracy:.4f}")
     return train_result
 
 
@@ -154,6 +158,27 @@ def visualize_result(training_result, train_loader, val_loader, test_loader, mod
 
 
 def main():
+    model = torchvision.models.googlenet(weights="DEFAULT")
+    for param in model.parameters():
+        param.requires_grad = False
+    model.fc = nn.Linear(in_features=INPUT_SIZE, out_features=CLASS_NUM)
+    model.to(device)
+
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.1, patience=2, verbose=True)
+
+    # Check if any model file exists in the directory
+    if os.path.exists(MODEL_FILE):
+        user_input = input(f"Model file '{MODEL_FILE}' detected. Do you want to load and train this model? (yes/no): ").strip().lower()
+
+        if user_input == "yes":
+            load_model(model, optimizer, MODEL_FILE)
+
+    # Print model summary
+    print("Model Summary:")
+    summary(model, input_size=(3, INPUT_SIZE, INPUT_SIZE))
+
     # Data Augmentation
     transform = get_transform()
 
@@ -164,22 +189,6 @@ def main():
     )
 
     train_loader, val_loader, test_loader = load_data(dataset)
-
-    # Freeze all layers except the last one, then update the last layer
-    model = resnet50(weights="DEFAULT")
-    for param in model.parameters():
-        param.requires_grad = False
-    model.fc = nn.Linear(in_features=INPUT_SIZE, out_features=CLASS_NUM)
-    model.to(device)
-
-    # Print model summary
-    print("Model Summary:")
-    summary(model, input_size=(3, INPUT_SIZE, INPUT_SIZE))
-
-    # Loss and Optimizer
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
-    scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
 
     # Visualize Augmented Samples
     visualize_augmentations(dataset)

@@ -6,23 +6,24 @@ from albumentations.pytorch import ToTensorV2
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 
-def load_model(model, optimizer, filename="model.pth.tar"):
+def load_model(model, optimizer, model_path):
     """Load model."""
-    if not os.path.exists(filename):
-        print(f"Checkpoint file '{filename}' not found.")
+    if not os.path.exists(model_path):
+        print(f"[ERROR] (utils.py) Error loading model file: {model_path} not found.")
         return
 
     print("Loading model......")
-    checkpoint = torch.load(filename, weights_only=True)
-    model.load_state_dict(checkpoint['state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer'])
+    state = torch.load(model_path)
+    model.load_state_dict(state['state_dict'])
+    optimizer.load_state_dict(state['optimizer'])
     print("Model loaded!")
 
 
-def save_model(model, best_model_path = "model.pth.tar"):
+def save_model(model, optimizer, model_path):
     """Save model."""
     print("Saving model......")
-    torch.save(model.state_dict(), best_model_path)
+    state = {"state_dict": model.state_dict(), "optimizer": optimizer.state_dict()}
+    torch.save(state, model_path)
     print("Model saved!")
 
 
@@ -30,7 +31,7 @@ def get_transform():
     """Return the data augmentation pipeline."""
     return A.Compose(
         [
-            A.Resize(width=224, height=224),  # Match model input size
+            A.Resize(width=224, height=224),
             A.RandomCrop(width=200, height=200),
             A.Rotate(limit=30, p=0.8),
             A.HorizontalFlip(p=0.5),
@@ -68,6 +69,25 @@ def check_accuracy(loader, model, device):
     accuracy = 100 * num_correct / num_samples
 
     return accuracy
+
+
+def denormalize(image, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
+    """Denormalize an image tensor."""
+    mean = torch.tensor(mean).view(1, 1, 3)
+    std = torch.tensor(std).view(1, 1, 3)
+    return (image * std) + mean
+
+
+def visualize_augmentations(dataset, num_samples=5):
+    for i in range(num_samples):
+        image, label = dataset[i]
+        image = denormalize(image.permute(1, 2, 0)).cpu().numpy()  # Denormalize and CHW -> HWC
+
+        plt.figure()
+        plt.imshow(image)
+        plt.title(f"Label: {label}")
+        plt.axis("off")
+        plt.show()
 
 
 def plot_metrics(history):
@@ -116,17 +136,4 @@ def plot_confusion_matrix(loader, model, device, title="Confusion Matrix"):
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=range(len(cm)))
     disp.plot(cmap=plt.cm.Blues)
     plt.title(title)
-    plt.show()
-
-
-def visualize_augmentations(dataset, num_samples=5):
-    """Visualize augmented samples."""
-    for i in range(num_samples):
-        image, label = dataset[i]
-        image = image.permute(1, 2, 0).cpu().numpy()  # CHW -> HWC
-
-        plt.figure()
-        plt.imshow(image)
-        plt.title(f"Label: {label}")
-        plt.axis("off")
     plt.show()
