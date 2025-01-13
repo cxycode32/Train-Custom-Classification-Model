@@ -14,7 +14,7 @@ from torchsummary import summary
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-INPUT_SIZE = 2048
+INPUT_SIZE = 1024
 CLASS_NUM = 3
 LEARNING_RATE = 3e-4
 BATCH_SIZE = 32
@@ -43,8 +43,8 @@ def load_data(dataset):
     train_set, val_set, test_set = random_split(dataset, [train_size, val_size, test_size])
 
     train_loader = DataLoader(dataset=train_set, batch_size=BATCH_SIZE, shuffle=True)
-    val_loader = DataLoader(dataset=val_set, batch_size=BATCH_SIZE, shuffle=False)
-    test_loader = DataLoader(dataset=test_set, batch_size=BATCH_SIZE, shuffle=False)
+    val_loader = DataLoader(dataset=val_set, batch_size=BATCH_SIZE, shuffle=True)
+    test_loader = DataLoader(dataset=test_set, batch_size=BATCH_SIZE, shuffle=True)
 
     return train_loader, val_loader, test_loader
 
@@ -112,8 +112,10 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
         # Record metrics
         train_result["train_loss"].append(train_loss)
         train_result["val_loss"].append(val_loss)
-        train_result["train_accuracy"].append(train_accuracy)
-        train_result["val_accuracy"].append(val_accuracy)
+        # In the training loop, where you record the accuracies:
+        train_result["train_accuracy"].append(train_accuracy.cpu().numpy())
+        train_result["val_accuracy"].append(val_accuracy.cpu().numpy())
+
 
         # Print metrics
         print(f"Epoch [{epoch+1}/{num_epochs}], "
@@ -122,7 +124,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
               f"Train Accuracy: {train_accuracy:.2f}%, "
               f"Val Accuracy: {val_accuracy:.2f}%")
 
-        # Save the best model
+        # # Save the best model
         # if val_accuracy > best_val_accuracy:
         #     best_val_accuracy = val_accuracy
         #     save_model(model, optimizer, MODEL_FILE)
@@ -130,7 +132,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
         # else:
         #     patience_counter += 1
 
-        # Early stopping
+        # # Early stopping
         # if patience_counter >= EARLY_STOPPING_PATIENCE:
         #     print("Early stopping triggered.")
         #     break

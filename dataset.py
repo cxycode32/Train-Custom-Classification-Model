@@ -17,13 +17,9 @@ class ScreenshotDataset(Dataset):
         self.annotations = pd.read_csv(csv_file)
         self.class_names = os.listdir(root_dir)
 
-        print("[TESTING] (dataset.py) self.class_names")
         for index, name in enumerate(self.class_names):
-            print(f"{index}: {name}")
             files = os.listdir(os.path.join(root_dir, name))
-            print(f"files: {files}")
             self.data += list(zip(files, [index] * len(files)))
-            print(f"self.data: {self.data}")
 
     def __len__(self):
         return len(self.annotations)
@@ -32,12 +28,7 @@ class ScreenshotDataset(Dataset):
         img_file, label = self.data[index]
         root_and_dir = os.path.join(self.root_dir, self.class_names[label])
         image = np.array(Image.open(os.path.join(root_and_dir, img_file)))
-
-        print("[TESTING] (dataset.py) __getitem__")
-        print(f"{img_file}, {label}")
-        print(f"root_and_dir: {root_and_dir}")
-        print(f"image: {image}")
-
+    
         if self.transform is not None:
             augmentations = self.transform(image=image)
             image = augmentations["image"]
