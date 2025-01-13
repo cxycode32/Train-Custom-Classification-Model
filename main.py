@@ -14,6 +14,8 @@ from torchsummary import summary
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# Here are hyperparameters
+# You can experiment with different values to find what works best for you
 INPUT_SIZE = 1024
 CLASS_NUM = 3
 LEARNING_RATE = 3e-4
@@ -67,15 +69,15 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
 
             # Forward pass
             outputs = model(data)
-            loss = criterion(outputs, targets)
+            loss = criterion(outputs, targets) # Compute loss
             train_loss += loss.item()
 
             # Backward pass
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            optimizer.zero_grad() # Clear previous gradients
+            loss.backward() # Compute gradients
+            optimizer.step() # Update weights
 
-            # Accuracy calculation
+            # Calculate accuracy
             _, preds = outputs.max(1)
             correct_train += (preds == targets).sum()
             total_train += targets.size(0)
@@ -93,11 +95,12 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
             for data, targets in val_loader:
                 data, targets = data.to(device), targets.to(device)
 
+                # Forward pass
                 outputs = model(data)
-                loss = criterion(outputs, targets)
+                loss = criterion(outputs, targets) # Compute validation loss
                 val_loss += loss.item()
 
-                # Accuracy calculation
+                # Calculate accuracy
                 _, preds = outputs.max(1)
                 correct_val += (preds == targets).sum()
                 total_val += targets.size(0)
@@ -122,7 +125,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
               f"Train Accuracy: {train_accuracy:.2f}%, "
               f"Val Accuracy: {val_accuracy:.2f}%")
 
-        # Save the best model
+        # Save the best model based on validation accuracy
         if val_accuracy > best_val_accuracy:
             best_val_accuracy = val_accuracy
             save_model(model, optimizer, MODEL_FILE)
@@ -130,7 +133,7 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
         else:
             patience_counter += 1
 
-        # Early stopping to prevent overfitting
+        # Early stopping if validation accuracy doesn't improve (to prevent overfitting)
         if patience_counter >= EARLY_STOPPING_PATIENCE:
             print("Early stopping triggered.")
             break
@@ -161,10 +164,16 @@ def main():
     model.fc = nn.Linear(in_features=INPUT_SIZE, out_features=CLASS_NUM)
     model.to(device)
 
-    criterion = nn.CrossEntropyLoss()
+    # Adjust weights for imbalanced datasets
+    # Remove weights if you have balanced datasets
+    total_samples = 11 + 37 + 42
+    weights = [total_samples / class_size for class_size in [11, 37, 42]]
+    criterion = nn.CrossEntropyLoss(weight=torch.tensor(weights).float().to(device))
+
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.1, patience=2, verbose=True)
 
+    # Optionally load a pre-trained model
     if os.path.exists(MODEL_FILE):
         user_input = input(f"Model file '{MODEL_FILE}' detected. Do you want to load and train this model? (yes/no): ").strip().lower()
 
