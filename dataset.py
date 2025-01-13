@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 from torch.utils.data import Dataset
-from utils import get_transform
 
 
 class ScreenshotDataset(Dataset):
@@ -28,7 +27,7 @@ class ScreenshotDataset(Dataset):
         img_file, label = self.data[index]
         root_and_dir = os.path.join(self.root_dir, self.class_names[label])
         image = np.array(Image.open(os.path.join(root_and_dir, img_file)))
-    
+
         if self.transform is not None:
             augmentations = self.transform(image=image)
             image = augmentations["image"]

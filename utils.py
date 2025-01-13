@@ -37,19 +37,6 @@ def get_transform():
             A.Rotate(limit=40, p=0.8, border_mode=0, value=0),
             A.HorizontalFlip(p=0.5),
             A.VerticalFlip(p=0.2),
-            A.RGBShift(r_shift_limit=20, g_shift_limit=20, b_shift_limit=20, p=0.8),
-            A.OneOf(
-                [
-                    A.Blur(blur_limit=3, p=0.3),
-                    A.ColorJitter(p=0.3),
-                ],
-                p=1.0,
-            ),
-            A.Normalize(
-                mean=[0, 0, 0],
-                std=[1, 1, 1],
-                max_pixel_value=255,
-            ),
             ToTensorV2(),
         ]
     )
@@ -72,22 +59,16 @@ def check_accuracy(loader, model, device):
             num_samples += targets.size(0)
 
     accuracy = 100 * num_correct / num_samples
-    print(f"{accuracy:.2f}%")
 
     return accuracy
-
-
-def denormalize(image, mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)):
-    """Denormalize an image tensor."""
-    mean = torch.tensor(mean).view(1, 1, 3)
-    std = torch.tensor(std).view(1, 1, 3)
-    return (image * std) + mean
 
 
 def visualize_augmentations(dataset, num_samples=5):
     for i in range(num_samples):
         image, label = dataset[i]
-        image = denormalize(image.permute(1, 2, 0)).cpu().numpy()
+
+        if isinstance(image, torch.Tensor):
+            image = image.permute(1, 2, 0).numpy()
 
         plt.figure()
         plt.imshow(image)
@@ -111,7 +92,6 @@ def plot_metrics(history):
 
     # Accuracy plot
     plt.subplot(1, 2, 2)
-    # Ensure tensors are moved to the CPU before plotting
     plt.plot(history["train_accuracy"], label="Train Accuracy")
     plt.plot(history["val_accuracy"], label="Validation Accuracy") 
     plt.title("Accuracy Trends")
@@ -142,5 +122,6 @@ def plot_confusion_matrix(loader, model, device, title="Confusion Matrix"):
     cm = confusion_matrix(all_labels, all_preds)
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=range(len(cm)))
     disp.plot(cmap=plt.cm.Blues)
+    plt.gca().invert_yaxis()
     plt.title(title)
     plt.show()

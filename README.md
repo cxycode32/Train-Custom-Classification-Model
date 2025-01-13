@@ -1,14 +1,15 @@
 # Training with Custom Datasets
 
-This repository is a deep learning pipeline for classifying screenshots with advanced data augmentation using PyTorch and Albumentations. The project leverages transfer learning on Google's GoogLeNet to achieve high accuracy with minimal training data.
+This repository is a deep learning pipeline for classifying custom screenshots with data augmentation using PyTorch and Albumentations. The model is based on Google's GoogLeNet architecture and includes functionalities for data preprocessing, augmentation, training, validation, testing, and result visualization.
 
 
 ## Features
 
-- **Custom Dataset Handling:** Supports CSV-based annotation for screenshots.
-- **Data Augmentation:** Powered by Albumentations to enrich training data.
-- **Transfer Learning:** Fine-tuning GoogLeNet with frozen layers.
-- **Visualization:** Includes tools for augmentations, training metrics, and confusion matrix plotting.
+- **Custom Dataset Loader:** Handles loading and preprocessing of screenshots from a directory structure and CSV file.
+- **Data Augmentation:** Includes rotation, flipping, and padding to enhance model generalization.
+- **Training and Validation:** Implements training with early stopping and learning rate scheduling.
+- **Visualization:** Provides confusion matrix, metric plots, and augmented image samples for analysis.
+- **Model Persistence:** Saves and loads models for reuse and evaluation.
 
 
 ## Installation
@@ -25,6 +26,36 @@ pip install -r requirements.txt
 ```
 
 
+### File Structure
+```
+├── main.py                # Training script
+├── utils.py               # Utility functions
+├── dataset.py             # Custom dataset class
+├── your_datasets/         # Your images
+├── data_labels.csv        # CSV file with image labels
+├── model.pth.tar          # Your model
+├── requirements.txt       # Project dependencies
+└── .gitignore             # Ignored files for Git
+```
+
+
+### Dataset Structure
+```
+your_datasets/
+  ├── class1/
+  │   ├── image1.jpg
+  │   ├── image2.jpg
+  │   └── ...
+  ├── class2/
+  │   ├── image1.jpg
+  │   ├── image2.jpg
+  │   └── ...
+  └── ...
+
+```
+A CSV file named **data_labels.csv** should contain the mapping of filenames to their corresponding labels.
+
+
 ## Usage
 
 Run the training script with default parameters:
@@ -33,18 +64,6 @@ python main.py
 ```
 
 
-### File Structure
-```
-├── main.py                # Training script
-├── dataset.py             # Custom dataset class
-├── utils.py               # Utility functions
-├── your_datasets/         # Your images
-├── data_labels.csv        # CSV file with image labels
-├── best_model.pth         # Saved best model
-├── requirements.txt       # Project dependencies
-└── .gitignore             # Ignored files for Git
-```
-
 ## Visualization
 
 ### Training Loss and Accuracy
@@ -52,10 +71,6 @@ python main.py
 The training loss and accuracy.
 
 ![Training Loss And Accuracy](./assets/training-loss-and-accuracy.png)
-
-### Confusion Matrix
-
-![Confusion Matrix](./assets/confusion-matrix.png)
 
 
 ## Contribution

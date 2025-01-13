@@ -18,17 +18,17 @@ INPUT_SIZE = 1024
 CLASS_NUM = 3
 LEARNING_RATE = 3e-4
 BATCH_SIZE = 32
-EPOCH_NUM = 50
-EARLY_STOPPING_PATIENCE = 5
+EPOCH_NUM = 80
+EARLY_STOPPING_PATIENCE = 8
 WEIGHT_DECAY = 1e-5
 
 # Change root directory to the directory where your datasets (images) are
-ROOT_DIR = "screenshots"
+ROOT_DIR = "your_datasets"
 
 # You need to create your own CSV file containing data labels
-# Currently data_labels.csv already contains sample format for your reference
+# Currently data_labels_sample.csv already contains sample format for your reference
 # You can edit it to tailor to your need
-CSV_FILE = "data_labels.csv"
+CSV_FILE = "data_labels_sample.csv"
 
 # Change to your own model file name if any
 MODEL_FILE = "model.pth.tar"
@@ -112,10 +112,8 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
         # Record metrics
         train_result["train_loss"].append(train_loss)
         train_result["val_loss"].append(val_loss)
-        # In the training loop, where you record the accuracies:
         train_result["train_accuracy"].append(train_accuracy.cpu().numpy())
         train_result["val_accuracy"].append(val_accuracy.cpu().numpy())
-
 
         # Print metrics
         print(f"Epoch [{epoch+1}/{num_epochs}], "
@@ -124,38 +122,35 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, scheduler
               f"Train Accuracy: {train_accuracy:.2f}%, "
               f"Val Accuracy: {val_accuracy:.2f}%")
 
-        # # Save the best model
-        # if val_accuracy > best_val_accuracy:
-        #     best_val_accuracy = val_accuracy
-        #     save_model(model, optimizer, MODEL_FILE)
-        #     patience_counter = 0
-        # else:
-        #     patience_counter += 1
+        # Save the best model
+        if val_accuracy > best_val_accuracy:
+            best_val_accuracy = val_accuracy
+            save_model(model, optimizer, MODEL_FILE)
+            patience_counter = 0
+        else:
+            patience_counter += 1
 
-        # # Early stopping
-        # if patience_counter >= EARLY_STOPPING_PATIENCE:
-        #     print("Early stopping triggered.")
-        #     break
+        # Early stopping to prevent overfitting
+        if patience_counter >= EARLY_STOPPING_PATIENCE:
+            print("Early stopping triggered.")
+            break
 
-    # print(f"Best model saved with best accuracy: {best_val_accuracy:.4f}")
     return train_result
 
 
 def visualize_result(training_result, train_loader, val_loader, test_loader, model):
-    # Plot training metrics
+    """Visualize the training result with loss and accuracy plot, and confusion matrix."""
     plot_metrics(training_result)
 
-    # Check model's accuracy
-    print("Training Set Accuracy:")
-    check_accuracy(train_loader, model, device)
+    train_accuracy = check_accuracy(train_loader, model, device)
+    print(f"Training Set Accuracy: {train_accuracy:.2f}")
 
-    print("Validation Set Accuracy:")
-    check_accuracy(val_loader, model, device)
+    val_accuracy = check_accuracy(val_loader, model, device)
+    print(f"Validation Set Accuracy: {val_accuracy:.2f}")
 
-    print("Test Set Accuracy:")
-    check_accuracy(test_loader, model, device)
+    test_accuracy = check_accuracy(test_loader, model, device)
+    print(f"Test Set Accuracy: {test_accuracy:.2f}")
 
-    # Confusion matrix for the test set
     plot_confusion_matrix(test_loader, model, device)
 
 
@@ -170,18 +165,15 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.1, patience=2, verbose=True)
 
-    # Check if any model file exists in the directory
     if os.path.exists(MODEL_FILE):
         user_input = input(f"Model file '{MODEL_FILE}' detected. Do you want to load and train this model? (yes/no): ").strip().lower()
 
         if user_input == "yes":
             load_model(model, optimizer, MODEL_FILE)
 
-    # Print model summary
     print("Model Summary:")
     summary(model, input_size=(3, INPUT_SIZE, INPUT_SIZE))
 
-    # Data Augmentation
     transform = get_transform()
 
     dataset = ScreenshotDataset(
@@ -192,13 +184,10 @@ def main():
 
     train_loader, val_loader, test_loader = load_data(dataset)
 
-    # Visualize Augmented Samples
     visualize_augmentations(dataset)
 
-    # Train the model
     training_result = train_model(model, train_loader, val_loader, criterion, optimizer, scheduler, EPOCH_NUM, device)
 
-    # Visualize Training Results
     visualize_result(training_result, train_loader, val_loader, test_loader, model)
 
 
