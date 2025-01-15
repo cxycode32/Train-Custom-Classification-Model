@@ -1,16 +1,13 @@
 import os
-import cv2
 import torch
 import albumentations as A
-from matplotlib import pyplot as plt
 from albumentations.pytorch import ToTensorV2
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 
 def load_model(model, optimizer, model_path):
     """Load model."""
     if not os.path.exists(model_path):
-        print(f"[ERROR] (utils.py) Error loading model file: {model_path} not found.")
+        print(f"[ERROR] Error loading model file: {model_path} not found.")
         return
 
     print("Loading model......")
@@ -40,88 +37,3 @@ def get_transform():
             ToTensorV2(),
         ]
     )
-
-
-def check_accuracy(loader, model, device):
-    """Check the accuracy of the model."""
-    model.eval()
-    num_correct = 0
-    num_samples = 0
-
-    with torch.no_grad():
-        for data, targets in loader:
-            data = data.to(device)
-            targets = targets.to(device)
-
-            outputs = model(data)
-            _, preds = outputs.max(1)
-            num_correct += (preds == targets).sum().item()
-            num_samples += targets.size(0)
-
-    accuracy = 100 * num_correct / num_samples
-
-    return accuracy
-
-
-def visualize_augmentations(dataset, num_samples=5):
-    for i in range(num_samples):
-        image, label = dataset[i]
-
-        if isinstance(image, torch.Tensor):
-            image = image.permute(1, 2, 0).numpy()
-
-        plt.figure()
-        plt.imshow(image)
-        plt.title(f"Label: {label}")
-        plt.axis("off")
-        plt.show()
-
-
-def plot_metrics(history):
-    """Plot loss and accuracy trends."""
-    plt.figure(figsize=(12, 5))
-
-    # Loss plot
-    plt.subplot(1, 2, 1)
-    plt.plot(history["train_loss"], label="Train Loss")
-    plt.plot(history["val_loss"], label="Validation Loss")
-    plt.title("Loss Trends")
-    plt.xlabel("Epochs")
-    plt.ylabel("Loss")
-    plt.legend()
-
-    # Accuracy plot
-    plt.subplot(1, 2, 2)
-    plt.plot(history["train_accuracy"], label="Train Accuracy")
-    plt.plot(history["val_accuracy"], label="Validation Accuracy") 
-    plt.title("Accuracy Trends")
-    plt.xlabel("Epochs")
-    plt.ylabel("Accuracy")
-    plt.legend()
-
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_confusion_matrix(loader, model, device, title="Confusion Matrix"):
-    """Plot confusion matrix."""
-    model.eval()
-    all_preds = []
-    all_labels = []
-
-    with torch.no_grad():
-        for data, targets in loader:
-            data = data.to(device)
-            targets = targets.to(device)
-
-            outputs = model(data)
-            _, preds = outputs.max(1)
-            all_preds.extend(preds.cpu().numpy())
-            all_labels.extend(targets.cpu().numpy())
-
-    cm = confusion_matrix(all_labels, all_preds)
-    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=range(len(cm)))
-    disp.plot(cmap=plt.cm.Blues)
-    plt.gca().invert_yaxis()
-    plt.title(title)
-    plt.show()

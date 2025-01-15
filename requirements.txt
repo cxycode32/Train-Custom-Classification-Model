@@ -6,3 +6,5 @@ opencv-python
 albumentations
 matplotlib
 scikit-learn
+tensorflow
+tensorboard
