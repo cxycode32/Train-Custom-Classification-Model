@@ -17,6 +17,7 @@ from utils import (
 
 
 def train_model(model, criterion, optimizer, writer, scaler, train_loader, batch_size, learning_rate, device=config.DEVICE):
+    """Trains the model and logs training progress using TensorBoard and tqdm."""
     step = 0
 
     # Visualize model using TensorBoard
@@ -43,28 +44,27 @@ def train_model(model, criterion, optimizer, writer, scaler, train_loader, batch
             data, targets = data.to(device), targets.to(device)
 
             with autocast():
-                # Forward pass
                 outputs = model(data)
                 loss = criterion(outputs, targets)
                 train_loss_batch = loss.item()
                 train_loss_epoch.append(train_loss_batch)
 
-            # Backward pass
-            optimizer.zero_grad() # Clear previous gradients
-            scaler.scale(loss).backward() # Compute gradients
-            scaler.step(optimizer) # Update weights
+            optimizer.zero_grad()
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
             scaler.update()
 
-            # Calculate accuracy
+            # Calculate batch accuracy
             _, preds = outputs.max(1)
             correct_train = (preds == targets).sum()
             total_train += targets.size(0)
             train_acc_batch = float(correct_train) / float(data.shape[0])
             train_acc_epoch.append(train_acc_batch)
             
+            # Update progress bar
             loop.set_postfix(loss=train_loss_batch, acc=train_acc_batch)
 
-            # Visualization
+            # Tensorboard logging
             img_grid = torchvision.utils.make_grid(data)
             writer.add_image("Training Image", img_grid)
             writer.add_scalar("Batch Training Loss", train_loss_batch, step)
@@ -87,10 +87,7 @@ def train_model(model, criterion, optimizer, writer, scaler, train_loader, batch
 
         writer.add_hparams(
             {"lr": learning_rate, "bsize": batch_size},
-            {
-                "accuracy": train_acc,
-                "loss": train_loss,
-            }
+            {"accuracy": train_acc,"loss": train_loss}
         )
 
         print(f"Train Loss: {train_loss:.4f}, "
@@ -102,6 +99,7 @@ def train_model(model, criterion, optimizer, writer, scaler, train_loader, batch
 
     
 def valid_model(model, criterion, writer, val_loader, device=config.DEVICE):
+    """Evaluates the model on the validation set."""
     model.eval()
     val_loss_epoch = []
     val_acc_epoch = []
@@ -152,6 +150,7 @@ def valid_model(model, criterion, writer, val_loader, device=config.DEVICE):
 
 
 def test_model(model, loader, device=config.DEVICE):
+    """Tests the model and prints test accuracy."""
     correct_predictions = 0
     total_samples = 0
     model.eval()
@@ -170,9 +169,10 @@ def test_model(model, loader, device=config.DEVICE):
 
 
 def main():
+    """Main function to load dataset, train, validate, and test the model."""
     clear_directories()
-
     transform = get_transform()
+
     dataset = ScreenshotDataset(
         dataset_dir=config.DATASET_DIR,
         csv_file=config.CSV_FILE,
@@ -189,16 +189,19 @@ def main():
             model.fc = nn.Linear(in_features=config.INPUT_SIZE, out_features=config.NUM_CLASSES)
             model.to(config.DEVICE)
 
+            optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=config.WEIGHT_DECAY)
+
             if config.LOAD_MODEL:
                 load_checkpoint(model, optimizer)
 
             # Adjust weights for imbalanced datasets
-            # Remove weights if you have balanced datasets
-            weights = [config.TOTAL_NUM_SAMPLES / count for count in config.SAMPLES_PER_CLASS]
-            weights = torch.tensor(weights, dtype=torch.float).to(config.DEVICE)
+            weights = torch.tensor(
+                [config.TOTAL_NUM_SAMPLES / count for count in config.SAMPLES_PER_CLASS],
+                dtype=torch.float,
+                device=config.DEVICE
+            )
             criterion = nn.CrossEntropyLoss(weight=weights)
 
-            optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=config.WEIGHT_DECAY)
             writer = SummaryWriter(f"{config.LOG_DIR}/BS_{batch_size}_LR_{learning_rate}")
             scaler = GradScaler()
 
