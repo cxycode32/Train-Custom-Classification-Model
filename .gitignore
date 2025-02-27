@@ -18,7 +18,9 @@ __pycache__/
 # PyTorch saved models
 *.pth
 
-runs/
-screenshots/
-data_labels.csv
+datasets/
+datasets.zip
+dataset.csv
+models/
+logs/
 hyperparameters.txt

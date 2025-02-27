@@ -1,23 +1,22 @@
-# Training with Custom Datasets
+# Train Custom Classification Model
 
-This repository is a deep learning pipeline for classifying custom screenshots with data augmentation using PyTorch and Albumentations. The model is based on Google's GoogLeNet architecture and includes functionalities for data preprocessing, augmentation, training, validation, testing, and result visualization.
+This repository is about training your own classification model based on the GoogLeNet architecture with your own custom dataset using PyTorch.
 
 
 ## Features
 
-- **Custom Dataset Loader:** Handles loading and preprocessing of screenshots from a directory structure and CSV file.
-- **Data Augmentation:** Includes rotation, flipping, and padding to enhance model generalization.
-- **Training and Validation:** Implements training with early stopping and learning rate scheduling.
-- **Visualization:** Provides confusion matrix, metric plots, and augmented image samples for analysis.
-- **Model Persistence:** Saves and loads models for reuse and evaluation.
+- You can experiment with different batch sizes and learning rates to find out which combination works best for you.
+- Help you adjust weights for imbalanced dataset.
+- You can load, train, validate, test, and save your model.
+- Visualization using TensorBoard.
 
 
 ## Installation
 
-Clone this repository to your local machine:
+Clone this repository:
 ```bash
-git clone https://github.com/cxycode32/Training-With-Custom-Datasets.git
-cd Training-With-Custom-Datasets
+git clone https://github.com/cxycode32/Train-Custom-Classification-Model.git
+cd Train-Custom-Classification-Model/
 ```
 
 Install the required dependencies:
@@ -26,14 +25,14 @@ pip install -r requirements.txt
 ```
 
 
-### File Structure
+### Project Structure
 ```
 ├── main.py                # Training script
 ├── utils.py               # Utility functions
+├── config.py              # Configuration
 ├── dataset.py             # Custom dataset class
-├── your_datasets/         # Your images
-├── data_labels.csv        # CSV file with image labels
-├── model.pth.tar          # Your model
+├── datasets/              # Your custom dataset
+├── dataset.csv            # CSV file with image labels
 ├── requirements.txt       # Project dependencies
 └── .gitignore             # Ignored files for Git
 ```
@@ -41,7 +40,7 @@ pip install -r requirements.txt
 
 ### Dataset Structure
 ```
-your_datasets/
+datasets/
   ├── class1/
   │   ├── image1.jpg
   │   ├── image2.jpg
@@ -53,7 +52,7 @@ your_datasets/
   └── ...
 
 ```
-A CSV file named **data_labels.csv** should contain the mapping of filenames to their corresponding labels.
+A CSV file named **dataset.csv** should contain the mapping of filenames to their corresponding labels.
 
 
 ## Usage
